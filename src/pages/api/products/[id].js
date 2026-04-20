@@ -1,4 +1,3 @@
-// src/pages/api/products/[ID].js
 import connectDB from '../../../lib/mongodb';
 import Product from '../../../models/Product';
 
@@ -18,16 +17,14 @@ export default async function handler(req, res) {
 
  else if (req.method === 'PUT' || req.method === 'PATCH') {
   try {
-    // هنا بنستخدم $set عشان يغير الحقول اللي بعثناها فقط
     const product = await Product.findByIdAndUpdate(
-      id, 
-      { $set: req.body },          // ← التعديل المهم هنا
-      { 
-        returnDocument: 'after', 
-        runValidators: true 
-      }
-    );
-
+  id,
+  { $set: req.body },
+  {
+    new: true,
+    runValidators: true
+  }
+);
     if (!product) {
       return res.status(404).json({ success: false, message: 'Product not found' });
     }
