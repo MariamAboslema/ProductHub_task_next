@@ -11,14 +11,26 @@ export default function Products({ products }) {
     </>
   );
 }
-
 export async function getStaticProps() {
-  const res = await fetch("https://dummyjson.com/products?limit=194");
-  const data = await res.json();
+  try {
+    const res = await fetch("http://localhost:3000/api/products?limit=194");
 
-  return {
-    props: {
-      products: data.products,
-    },
-  };
+    const data = await res.json();
+
+    return {
+      props: {
+        products: data.success ? data.products : [],
+      },
+      revalidate: 60,
+    };
+  } catch (error) {
+    console.error(error);
+
+    return {
+      props: {
+        products: [],
+      },
+      revalidate: 60,
+    };
+  }
 }

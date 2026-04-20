@@ -1,12 +1,30 @@
 import { useState } from "react";
+import Image from "next/image";
 
-const ProductModal = ({ show, onClose, onSave, editProduct }) => {
+const ProductModal = ({ onClose, onSave, editProduct }) => {
   const isEdit = !!editProduct;
-  const [form, setForm] = useState(editProduct || { title: "", price: "", category: "", description: "", thumbnail: "" });
 
-  if (!show) return null;
+  const [form, setForm] = useState(
+    isEdit
+      ? {
+          _id: editProduct._id || "",
+          title: editProduct.title || "",
+          price: editProduct.price?.toString() || "",
+          category: editProduct.category || "",
+          description: editProduct.description || "",
+          thumbnail: editProduct.thumbnail || "",
+        }
+      : { title: "", price: "", category: "", description: "", thumbnail: "" }
+  );
 
-  const handle = (e) => setForm({ ...form, [e.target.name]: e.target.value });
+  const handleChange = (e) => {
+    setForm((prev) => ({ ...prev, [e.target.name]: e.target.value }));
+  };
+
+  const handleSave = () => {
+    onSave(form);
+    onClose();
+  };
 
   return (
     <div style={{ position: "fixed", inset: 0, backgroundColor: "rgba(0,0,0,0.5)", zIndex: 9999, display: "flex", alignItems: "center", justifyContent: "center" }}>
@@ -21,23 +39,23 @@ const ProductModal = ({ show, onClose, onSave, editProduct }) => {
 
         <div className="mb-3">
           <label className="form-label fw-semibold">Title</label>
-          <input className="form-control" name="title" value={form.title} onChange={handle} placeholder="Product title" />
+          <input className="form-control" name="title" value={form.title} onChange={handleChange} placeholder="Product title" />
         </div>
         <div className="mb-3">
           <label className="form-label fw-semibold">Price ($)</label>
-          <input className="form-control" name="price" value={form.price} onChange={handle} placeholder="0.00" type="number" />
+          <input className="form-control" name="price" value={form.price} onChange={handleChange} placeholder="0.00" type="number" />
         </div>
         <div className="mb-3">
           <label className="form-label fw-semibold">Category</label>
-          <input className="form-control" name="category" value={form.category} onChange={handle} placeholder="e.g. Electronics" />
+          <input className="form-control" name="category" value={form.category} onChange={handleChange} placeholder="e.g. Electronics" />
         </div>
         <div className="mb-3">
           <label className="form-label fw-semibold">Description</label>
-          <textarea className="form-control" name="description" value={form.description} onChange={handle} rows={3} placeholder="Product description..." />
+          <textarea className="form-control" name="description" value={form.description} onChange={handleChange} rows={3} placeholder="Product description..." />
         </div>
         <div className="mb-3">
           <label className="form-label fw-semibold">Image URL</label>
-          <input className="form-control" name="thumbnail" value={form.thumbnail} onChange={handle} placeholder="https://..." />
+          <input className="form-control" name="thumbnail" value={form.thumbnail} onChange={handleChange} placeholder="https://..." />
         </div>
 
         <div className="d-flex gap-2 justify-content-end">
@@ -45,7 +63,7 @@ const ProductModal = ({ show, onClose, onSave, editProduct }) => {
           <button
             className="btn fw-semibold"
             style={{ backgroundColor: "#5E9FD1", color: "#fff", border: "none" }}
-            onClick={() => { onSave(form); onClose(); }}
+            onClick={handleSave}
           >
             {isEdit ? "Save Changes" : "Add Product"}
           </button>
@@ -68,9 +86,14 @@ const SeeMoreModal = ({ product, onClose }) => {
           <button className="btn-close" onClick={onClose}></button>
         </div>
 
-        <img src={product.thumbnail} alt={product.title}
-          style={{ width: "100%", height: "200px", objectFit: "contain", borderRadius: "12px", backgroundColor: "#f8fafc" }}
-        />
+        <div style={{ position: "relative", width: "100%", height: "200px" }}>
+          <Image
+            src={product.thumbnail}
+            alt={product.title}
+            fill
+            style={{ objectFit: "contain", borderRadius: "12px", backgroundColor: "#f8fafc" }}
+          />
+        </div>
 
         <h5 className="fw-bold mt-3">{product.title}</h5>
         <span className="badge mb-2" style={{ backgroundColor: "#dbeafe", color: "#1e40af" }}>
@@ -105,7 +128,6 @@ const ProductsComponent = ({ products }) => {
   const [editProduct, setEditProduct] = useState(null);
   const [seeMoreProduct, setSeeMoreProduct] = useState(null);
   const cardsPerPage = 3;
-
   const categories = ["All", ...new Set(products.map((p) => p.category))];
 
   const filteredProducts =
@@ -114,37 +136,64 @@ const ProductsComponent = ({ products }) => {
       : productList.filter((p) => p.category === selectedCategory);
 
   const visibleProducts = [];
-  for (let i = 0; i < cardsPerPage; i++) {
-    const index = (startIndex + i) % filteredProducts.length;
-    visibleProducts.push(filteredProducts[index]);
+  if (filteredProducts.length > 0) {
+    for (let i = 0; i < Math.min(cardsPerPage, filteredProducts.length); i++) {
+      const index = (startIndex + i) % filteredProducts.length;
+      visibleProducts.push(filteredProducts[index]);
+    }
   }
 
   const next = () => setStartIndex((prev) => (prev + 1) % filteredProducts.length);
   const prev = () => setStartIndex((prev) => (prev - 1 + filteredProducts.length) % filteredProducts.length);
 
-  const handleDelete = (id) => {
-    setProductList((prev) => prev.filter((p) => p.id !== id));
+  const handleDelete = async (id) => {
+    await fetch(`/api/products/${id}`, { method: "DELETE" });
+    setProductList((prev) => prev.filter((p) => p._id !== id));
   };
 
-  const handleAdd = (form) => {
-    const newProduct = {
-      ...form,
-      id: Date.now(),
-      price: parseFloat(form.price) || 0,
-      images: [form.thumbnail],
-      rating: 0,
-      stock: 0,
-      description: form.description || "",
-    };
-    setProductList((prev) => [newProduct, ...prev]);
+  const handleAdd = async (form) => {
+    const res = await fetch("/api/products", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ ...form, price: parseFloat(form.price) || 0 }),
+    });
+    const data = await res.json();
+    if (data.success) setProductList((prev) => [data.product, ...prev]);
   };
 
-  const handleEdit = (form) => {
-    setProductList((prev) =>
-      prev.map((p) => p.id === form.id ? { ...p, ...form, price: parseFloat(form.price) || p.price } : p)
-    );
-    setEditProduct(null);
+   const handleEdit = async (form) => {
+    if (!form._id) {
+      console.error("No product ID");
+      return;
+    }
+
+    try {
+      const res = await fetch(`/api/products/${form._id}`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          title: form.title,
+          price: parseFloat(form.price) || 0,
+          category: form.category,
+          description: form.description,
+          thumbnail: form.thumbnail,
+        }),
+      });
+
+      const data = await res.json();
+      if (data.success) {
+        setProductList((prev) =>
+          prev.map((p) => (p._id === form._id ? data.product : p))
+        );
+        
+        setEditProduct(null);   
+      } 
+    } catch (error) {
+      console.error("Update Error:", error);
+    }
   };
+
+       
 
   return (
     <div className="py-4">
@@ -152,7 +201,6 @@ const ProductsComponent = ({ products }) => {
       <div className="d-flex justify-content-between align-items-center mb-4 flex-wrap gap-3">
         <div>
           <h2 className="fw-bold m-0" style={{ color: "#1e3a8a" }}>Products 🛍️</h2>
-          {/* <p className="text-muted mb-0">{filteredProducts.length} products</p> */}
         </div>
         <div className="d-flex gap-2 align-items-center">
           <select
@@ -180,12 +228,13 @@ const ProductsComponent = ({ products }) => {
 
         <div className="row g-4 flex-grow-1">
           {visibleProducts.map((product) => (
-            <div className="col-md-4" key={product.id}>
+            <div className="col-md-4" key={product._id}>
               <div className="card h-100 border-0 shadow-sm" style={{ borderRadius: "16px", overflow: "hidden" }}>
-                <img src={product.thumbnail} alt={product.title}
-                  style={{ width: "100%", height: "150px", objectFit: "contain", padding: "10px", backgroundColor: "#f8fafc" }}
-                  onError={(e) => { e.target.src = "https://via.placeholder.com/200"; }}
-                />
+                <div style={{ position: "relative", width: "100%", height: "150px" }}>
+                  <Image src={product.thumbnail} alt={product.title} fill
+                    style={{ objectFit: "contain", padding: "10px", backgroundColor: "#f8fafc" }}
+                  />
+                </div>
                 <div className="card-body d-flex flex-column p-3">
                   <span className="badge mb-2" style={{ backgroundColor: "#dbeafe", color: "#1e40af", alignSelf: "flex-start" }}>
                     {product.category}
@@ -203,7 +252,7 @@ const ProductsComponent = ({ products }) => {
                       onClick={() => setSeeMoreProduct(product)}>👁️ More</button>
                     <button className="btn btn-sm"
                       style={{ backgroundColor: "#fee2e2", color: "#991b1b", border: "1px solid #fecaca", borderRadius: "8px" }}
-                      onClick={() => handleDelete(product.id)}>🗑️</button>
+                      onClick={() => handleDelete(product._id)}>🗑️</button>
                   </div>
                 </div>
               </div>
@@ -214,10 +263,24 @@ const ProductsComponent = ({ products }) => {
         <button onClick={next} style={{ backgroundColor: "#5E9FD1", color: "#fff", border: "none", borderRadius: "50%", width: "40px", height: "40px", fontSize: "1.2rem", cursor: "pointer", flexShrink: 0 }}>›</button>
       </div>
 
-      <ProductModal key="add"show={showAddModal}onClose={() => setShowAddModal(false)}onSave={handleAdd}editProduct={null}/>
-      <ProductModal key={editProduct?.id ?? "edit"}show={!!editProduct}onClose={() => setEditProduct(null)}onSave={handleEdit}editProduct={editProduct}/>
+      {showAddModal && (
+        <ProductModal
+          onClose={() => setShowAddModal(false)}
+          onSave={handleAdd}
+          editProduct={null}
+        />
+      )}
 
-      <SeeMoreModal product={seeMoreProduct}onClose={() => setSeeMoreProduct(null)}/>
+      {editProduct && (
+        <ProductModal
+          key={editProduct._id}
+          onClose={() => setEditProduct(null)}
+          onSave={handleEdit}
+          editProduct={editProduct}
+        />
+      )}
+
+      <SeeMoreModal product={seeMoreProduct} onClose={() => setSeeMoreProduct(null)} />
     </div>
   );
 };
