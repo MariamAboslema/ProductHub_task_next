@@ -1,7 +1,8 @@
 import { useState } from "react";
 import Image from "next/image";
+import { useSession, signIn } from "next-auth/react";
 
-const ProductCard = ({ product, onEdit, onSeeMore, onDelete }) => {
+const ProductCard = ({ product, onEdit, onSeeMore, onDelete, session }) => {
   const [quantity, setQuantity] = useState(1);
 
   const handleIncrement = () => setQuantity(prev => prev + 1);
@@ -61,9 +62,19 @@ const ProductCard = ({ product, onEdit, onSeeMore, onDelete }) => {
           {product.title.length > 50 ? product.title.substring(0, 50) + "..." : product.title}
         </h6>
 
-        <p className="fw-bold mb-0" style={{ color: "#5E9FD1", fontSize: "1.1rem" }}>
-          ${product.price}
-        </p>
+        {session ? (
+          <p className="fw-bold mb-0" style={{ color: "#5E9FD1", fontSize: "1.1rem" }}>
+            ${product.price}
+          </p>
+        ) : (
+          <p
+            className="fw-bold mb-0"
+            style={{ color: "#aaa", fontSize: "0.85rem", cursor: "pointer" }}
+            onClick={() => signIn()}
+          >
+            🔒 Sign in to see price
+          </p>
+        )}
 
         <div
           className="d-flex align-items-center gap-2"
@@ -103,7 +114,7 @@ const ProductCard = ({ product, onEdit, onSeeMore, onDelete }) => {
             >+</button>
           </div>
           <button
-            className="btn btn-sm  flex-grow-1"
+            className="btn btn-sm flex-grow-1"
             onClick={addToCart}
             style={{
               backgroundColor: "#5E9FD1",
@@ -118,23 +129,35 @@ const ProductCard = ({ product, onEdit, onSeeMore, onDelete }) => {
           </button>
         </div>
 
-        <div className="d-flex gap-2 mt-1">
-          <button
-            className="btn btn-sm flex-fill"
-            style={{ backgroundColor: "#fef9ec", color: "#92400e", border: "1px solid #fde68a", borderRadius: "8px", fontSize: "0.75rem", fontWeight: "600" }}
-            onClick={() => onEdit(product)}
-          >✏️ Edit</button>
-          <button
-            className="btn btn-sm flex-fill"
-            style={{ backgroundColor: "#f0fdf4", color: "#166534", border: "1px solid #bbf7d0", borderRadius: "8px", fontSize: "0.75rem", fontWeight: "600" }}
-            onClick={() => onSeeMore(product)}
-          >👁️ More</button>
-          <button
-            className="btn btn-sm"
-            style={{ backgroundColor: "#fff5f5", color: "#991b1b", border: "1px solid #fecaca", borderRadius: "8px", fontSize: "0.75rem", padding: "4px 10px" }}
-            onClick={() => onDelete(product._id)}
-          >🗑️</button>
-        </div>
+        {session && (
+          <div className="d-flex gap-2 mt-1">
+            <button
+              className="btn btn-sm flex-fill"
+              style={{ backgroundColor: "#fef9ec", color: "#92400e", border: "1px solid #fde68a", borderRadius: "8px", fontSize: "0.75rem", fontWeight: "600" }}
+              onClick={() => onEdit(product)}
+            >✏️ Edit</button>
+            <button
+              className="btn btn-sm flex-fill"
+              style={{ backgroundColor: "#f0fdf4", color: "#166534", border: "1px solid #bbf7d0", borderRadius: "8px", fontSize: "0.75rem", fontWeight: "600" }}
+              onClick={() => onSeeMore(product)}
+            >👁️ More</button>
+            <button
+              className="btn btn-sm"
+              style={{ backgroundColor: "#fff5f5", color: "#991b1b", border: "1px solid #fecaca", borderRadius: "8px", fontSize: "0.75rem", padding: "4px 10px" }}
+              onClick={() => onDelete(product._id)}
+            >🗑️</button>
+          </div>
+        )}
+
+        {!session && (
+          <div className="d-flex gap-2 mt-1">
+            <button
+              className="btn btn-sm flex-fill"
+              style={{ backgroundColor: "#f0fdf4", color: "#166534", border: "1px solid #bbf7d0", borderRadius: "8px", fontSize: "0.75rem", fontWeight: "600" }}
+              onClick={() => onSeeMore(product)}
+            >👁️ More</button>
+          </div>
+        )}
       </div>
     </div>
   );
@@ -226,6 +249,7 @@ const SeeMoreModal = ({ product, onClose }) => {
 };
 
 const ProductsComponent = ({ products }) => {
+  const { data: session } = useSession(); 
   const [productList, setProductList] = useState(products);
   const [startIndex, setStartIndex] = useState(0);
   const [selectedCategory, setSelectedCategory] = useState("All");
@@ -239,13 +263,16 @@ const ProductsComponent = ({ products }) => {
   const filteredProducts =
     selectedCategory === "All" ? productList : productList.filter((p) => p.category === selectedCategory);
 
-  const visibleProducts = [];
-  if (filteredProducts.length > 0) {
-    for (let i = 0; i < Math.min(cardsPerPage, filteredProducts.length); i++) {
-      const index = (startIndex + i) % filteredProducts.length;
-      visibleProducts.push(filteredProducts[index]);
-    }
-  }
+  const visibleProducts = session
+    ? (() => {
+        const arr = [];
+        for (let i = 0; i < Math.min(cardsPerPage, filteredProducts.length); i++) {
+          const index = (startIndex + i) % filteredProducts.length;
+          arr.push(filteredProducts[index]);
+        }
+        return arr;
+      })()
+    : filteredProducts.slice(0, 3);
 
   const next = () => setStartIndex((prev) => (prev + 1) % filteredProducts.length);
   const prev = () => setStartIndex((prev) => (prev - 1 + filteredProducts.length) % filteredProducts.length);
@@ -308,32 +335,56 @@ const ProductsComponent = ({ products }) => {
             {categories.map((cat) => <option key={cat} value={cat}>{cat}</option>)}
           </select>
 
-          <button
-            onClick={() => setShowAddModal(true)}
-            style={{
-              backgroundColor: "#5E9FD1",
-              color: "#fff",
-              border: "none",
-              borderRadius: "8px",
-              fontSize: "0.82rem",
-              fontWeight: "600",
-              height: "32px",
-              padding: "0 14px",
-              whiteSpace: "nowrap",
-              cursor: "pointer",
-            }}
-          >
-            + Add New
-          </button>
+          {session && (
+            <button
+              onClick={() => setShowAddModal(true)}
+              style={{
+                backgroundColor: "#5E9FD1",
+                color: "#fff",
+                border: "none",
+                borderRadius: "8px",
+                fontSize: "0.82rem",
+                fontWeight: "600",
+                height: "32px",
+                padding: "0 14px",
+                whiteSpace: "nowrap",
+                cursor: "pointer",
+              }}
+            >
+              + Add New
+            </button>
+          )}
+
+          {!session && (
+            <button
+              onClick={() => signIn()}
+              style={{
+                backgroundColor: "#fff",
+                color: "#5E9FD1",
+                border: "2px solid #5E9FD1",
+                borderRadius: "8px",
+                fontSize: "0.82rem",
+                fontWeight: "600",
+                height: "32px",
+                padding: "0 14px",
+                whiteSpace: "nowrap",
+                cursor: "pointer",
+              }}
+            >
+              🔒 Sign in for full access
+            </button>
+          )}
         </div>
       </div>
 
       <div className="d-flex align-items-center gap-3 px-2">
-        <button
-          onClick={prev}
-          className="btn flex-shrink-0"
-          style={{ backgroundColor: "#5E9FD1", color: "#fff", borderRadius: "50%", width: "38px", height: "38px", padding: 0, fontSize: "1.1rem", lineHeight: 1, border: "none" }}
-        >‹</button>
+        {session && (
+          <button
+            onClick={prev}
+            className="btn flex-shrink-0"
+            style={{ backgroundColor: "#5E9FD1", color: "#fff", borderRadius: "50%", width: "38px", height: "38px", padding: 0, fontSize: "1.1rem", lineHeight: 1, border: "none" }}
+          >‹</button>
+        )}
 
         <div className="row g-3 flex-grow-1">
           {visibleProducts.map((product) => (
@@ -343,17 +394,21 @@ const ProductsComponent = ({ products }) => {
                 onEdit={setEditProduct}
                 onSeeMore={setSeeMoreProduct}
                 onDelete={handleDelete}
+                session={session} 
               />
             </div>
           ))}
         </div>
 
-        <button
-          onClick={next}
-          className="btn flex-shrink-0"
-          style={{ backgroundColor: "#5E9FD1", color: "#fff", borderRadius: "50%", width: "38px", height: "40px", padding: 0, fontSize: "1.1rem", lineHeight: 1, border: "none" }}
-        >›</button>
+        {session && (
+          <button
+            onClick={next}
+            className="btn flex-shrink-0"
+            style={{ backgroundColor: "#5E9FD1", color: "#fff", borderRadius: "50%", width: "38px", height: "40px", padding: 0, fontSize: "1.1rem", lineHeight: 1, border: "none" }}
+          >›</button>
+        )}
       </div>
+
 
       {showAddModal && <ProductModal onClose={() => setShowAddModal(false)} onSave={handleAdd} />}
       {editProduct && <ProductModal key={editProduct._id} onClose={() => setEditProduct(null)} onSave={handleEdit} editProduct={editProduct} />}
