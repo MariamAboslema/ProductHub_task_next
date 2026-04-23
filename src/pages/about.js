@@ -1,5 +1,6 @@
 import Head from "next/head";
-import AboutComponent from "./components/AboutComponent";
+import AboutComponent from "@/components/AboutComponent";
+
 export default function About() {
   return (
     <>
