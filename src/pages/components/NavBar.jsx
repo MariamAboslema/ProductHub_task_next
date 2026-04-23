@@ -32,9 +32,6 @@ const NavBar = () => {
             <li className="nav-item">
               <Link className="nav-link fw-semibold" href="/about" style={{ color: router.pathname === "/about" ? "white" : "#D1E2FF" }}>About</Link>
             </li>
-            <li className="nav-item">
-              <Link className="nav-link fw-semibold" href="/cart" style={{ color: router.pathname === "/cart" ? "white" : "#D1E2FF" }}>Cart</Link>
-            </li>
             <li className="nav-item ms-lg-3">
               {session ? (
                 <button className="signup-btn" onClick={() => signOut()}>LogOut</button>

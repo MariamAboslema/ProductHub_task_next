@@ -248,9 +248,9 @@ const SeeMoreModal = ({ product, onClose }) => {
   );
 };
 
-const ProductsComponent = ({ products }) => {
-  const { data: session } = useSession(); 
-  const [productList, setProductList] = useState(products);
+const ProductsComponent = ({ products = [] }) => {
+    const { data: session } = useSession(); 
+const [productList, setProductList] = useState(products || []);
   const [startIndex, setStartIndex] = useState(0);
   const [selectedCategory, setSelectedCategory] = useState("All");
   const [showAddModal, setShowAddModal] = useState(false);
@@ -258,8 +258,7 @@ const ProductsComponent = ({ products }) => {
   const [seeMoreProduct, setSeeMoreProduct] = useState(null);
 
   const cardsPerPage = 3;
-  const categories = ["All", ...new Set(products.map((p) => p.category))];
-
+  const categories = ["All", ...new Set((productList || []).map((p) => p.category))];
   const filteredProducts =
     selectedCategory === "All" ? productList : productList.filter((p) => p.category === selectedCategory);
 
