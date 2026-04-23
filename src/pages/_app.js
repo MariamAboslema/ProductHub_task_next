@@ -1,7 +1,7 @@
 import "@/styles/globals.css";
 import "bootstrap/dist/css/bootstrap.min.css";
-import NavBar from "./components/NavBar";
-import Footer from "./components/Footer";
+import NavBar from "@/components/NavBar";
+import Footer from "@/components/Footer";
 import { Toaster } from "react-hot-toast";
 import { useEffect } from "react";
 import toast from 'react-hot-toast';

@@ -1,5 +1,5 @@
 import Head from "next/head";
-import ProductsComponent from "../components/ProductsComponent";
+import ProductsComponent from "@/components/ProductsComponent";
 
 export default function Products({ products }) {
   return (
